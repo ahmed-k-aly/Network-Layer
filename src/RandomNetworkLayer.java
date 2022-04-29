@@ -61,8 +61,18 @@ public class RandomNetworkLayer extends NetworkLayer {
         Queue<Byte> packet = new LinkedList<Byte>();
         // length of packet is the length of the data + destination byte hence + 4.
         int packetLength = data.length + 4;
-        packet.add((byte)packetLength);
-        packet.add((byte) destination);
+        byte[] packetLengthBytes = intToBytes(packetLength);
+        for (int i = 0; i < packetLengthBytes.length; i++) {
+            assert (packetLengthBytes.length == 4);
+            // add the packet length
+            packet.add(packetLengthBytes[i]);
+        }
+        byte[] destinationBytes = intToBytes(destination);
+        for (int i = 0; i < destinationBytes.length;i++){
+            assert (destinationBytes.length == 4);
+            packet.add(destinationBytes[i]);
+        }
+
         for (int i = 0; i < data.length; i++) {
             packet.add(data[i]);
         }
@@ -79,7 +89,6 @@ public class RandomNetworkLayer extends NetworkLayer {
 	
     } // createPacket ()
     // =========================================================================
-
 
 
     // =========================================================================
