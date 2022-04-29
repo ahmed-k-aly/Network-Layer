@@ -1,14 +1,18 @@
 // =============================================================================
 // IMPORTS
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
 // =============================================================================
+import java.util.logging.Logger;
 
 
 
@@ -29,7 +33,7 @@ public class RandomNetworkLayer extends NetworkLayer {
     // PUBLIC METHODS
     // =========================================================================
 
-
+    Logger logger = Logger.getLogger(RandomNetworkLayer.class.getName());
 
     // =========================================================================
     /**
@@ -54,8 +58,24 @@ public class RandomNetworkLayer extends NetworkLayer {
      * @return the sequence of bytes that comprises the packet.
      */
     protected byte[] createPacket (int destination, byte[] data) {
+        Queue<Byte> packet = new LinkedList<Byte>();
+        // length of packet is the length of the data + destination byte hence + 4.
+        int packetLength = data.length + 4;
+        packet.add((byte)packetLength);
+        packet.add((byte) destination);
+        for (int i = 0; i < data.length; i++) {
+            packet.add(data[i]);
+        }
 
-	// COMPLETE ME
+        // convert packet to byte array
+        byte[] packetArr = new byte[packet.size()];
+        Iterator<Byte> i = packet.iterator();
+        int j = 0;
+        while (i.hasNext()) {
+            packetArr[j++] = i.next();
+        }
+        return packetArr;
+	
 	
     } // createPacket ()
     // =========================================================================
@@ -70,14 +90,34 @@ public class RandomNetworkLayer extends NetworkLayer {
      * @param destination The address to which this packet is being sent.
      */
     protected DataLinkLayer route (int destination) {
+        logger.entering(RandomNetworkLayer.class.getName(), new Throwable().getStackTrace()[0].getMethodName());
+        // follow a random policy to route the link through
+        return randomRouting();
 
-	// COMPLETE ME
 	
     } // route ()
     // =========================================================================
 
+    /**
+     * @brief Select a random link through which to send a packet.
+     * @return a random link
+     * @throws NullPointerException if no link is available to choose.
+     */
+    private DataLinkLayer randomRouting () {
+        // Convert the dataLink hashmap to an Array List.
+        Collection<DataLinkLayer> dataLinkCollection = dataLinkLayers.values();
+        List<DataLinkLayer> dataLinkList = new ArrayList<>(dataLinkCollection);
+       // pick a random link.
+        Collections.shuffle(dataLinkList);
+        DataLinkLayer randomLink = dataLinkList.get(0);
+        if (randomLink == null) {
+            throw new NullPointerException("No random link");
+        }
+        logger.info("Choosen random link: " + randomLink); // log information
+        return randomLink;
+    }
 
-
+    }
     // =========================================================================
     /**
      * Examine a buffer to see if it's data can be extracted as a packet; if so,
@@ -88,12 +128,34 @@ public class RandomNetworkLayer extends NetworkLayer {
      *         buffer; <code>null</code> otherwise.
      */
     protected byte[] extractPacket (Queue<Byte> buffer) {
+        Queue<Byte> packetsBuffer = new LinkedList<>(buffer);
 
-	// COMPLETE ME
-	
+        if (buffer.size() < 4){
+            return null;
+        }
+        int packetLength = byteToInteger(packetsBuffer);
+        byte[] packet = new byte[packetLength];
+        if (packetLength > buffer.size()){
+            // buffer is too small to contain the packet
+            return null;
+        }
+        // found a whole packet;
+        for (int i = 0; i < packetLength; i++) {
+            // fill the packets array wit the whole packet
+            packet[i] = buffer.remove();
+        }
+       return packet;
     } // extractPacket ()
     // =========================================================================
 
+    private int byteToInteger(Queue<Byte> buffer) {
+        int intSize = 4; // an int is 4 bytes long.
+        int value = 0;
+
+        for (int i = 0; i < intSize; i++) {
+            value = (value << 8) + ( buffer.remove() & 0xFF);
+        }
+    }
 
 
     // =========================================================================
