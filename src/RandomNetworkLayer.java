@@ -129,7 +129,6 @@ public class RandomNetworkLayer extends NetworkLayer {
      */
     protected byte[] extractPacket (Queue<Byte> buffer) {
         Queue<Byte> packetsBuffer = new LinkedList<>(buffer);
-
         if (buffer.size() < 4){
             return null;
         }
