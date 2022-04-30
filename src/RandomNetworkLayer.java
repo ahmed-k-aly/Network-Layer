@@ -66,8 +66,8 @@ public class RandomNetworkLayer extends NetworkLayer {
             System.err.println("Length of packet is more than maximum allowed");
         }
         Queue<Byte> packet = new LinkedList<Byte>();
-        // length of packet is the length of the data + destination byte hence + 4.
-        int packetLength = data.length + Integer.BYTES + Integer.BYTES;
+        // length of packet is the length of the data + the length of the header
+        int packetLength = data.length + bytesPerHeader;
         byte[] packetLengthBytes = intToBytes(packetLength);
         // add the packet length to the packet
         for (int i = 0; i < packetLengthBytes.length; i++) {
@@ -117,10 +117,9 @@ public class RandomNetworkLayer extends NetworkLayer {
         logger.entering(RandomNetworkLayer.class.getName(), new Throwable().getStackTrace()[0].getMethodName());
         // follow a random policy to route the link through
         return randomRouting();
-
-	
     } // route ()
     // =========================================================================
+
 
     /**
      * @brief Select a random link through which to send a packet.
@@ -140,6 +139,7 @@ public class RandomNetworkLayer extends NetworkLayer {
         logger.info("Choosen random link: " + randomLink); // log information
         return randomLink;
     }
+
 
     // =========================================================================
     /**
@@ -195,16 +195,17 @@ public class RandomNetworkLayer extends NetworkLayer {
         copyFrom(destinationBytes, packet, destinationOffset);
         int destination = bytesToInt(destinationBytes);
         // check if the destination is this.
-        if (destination == this.address){
+        if (destination == getAddress()){
+            // remove the metadata from the packet.
+            byte[] data = new byte[packet.length - bytesPerHeader];
+            copyFrom(data, packet, bytesPerHeader); 
             // deliver to host
-            client.receive(packet);
+            client.receive(data);
         } else{
+            //else reroute
             DataLinkLayer randomLink = route(destination);
             randomLink.send(packet);
         }
-        // else create new packet
-        // reroute
-	
     } // processPacket ()
     // =========================================================================
     
@@ -225,9 +226,10 @@ public class RandomNetworkLayer extends NetworkLayer {
     /** The offset into the header for the length. */
     public static final int     lengthOffset      = 0;
 
-    
+
     /** The offset into the header for the destination address. */
     public static final int     destinationOffset = lengthOffset + Integer.BYTES;
+
     /** The offset into the header for the source address. */
     public static final int     sourceOffset      = destinationOffset + Integer.BYTES;
     
@@ -239,7 +241,7 @@ public class RandomNetworkLayer extends NetworkLayer {
    // =========================================================================
 
 
-    
+
 // =============================================================================
 } // class RandomNetworkLayer
 // =============================================================================
