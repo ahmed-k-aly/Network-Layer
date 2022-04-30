@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
+import java.util.logging.Level;
 // =============================================================================
 import java.util.logging.Logger;
 
@@ -19,7 +20,7 @@ import java.util.logging.Logger;
 // =============================================================================
 /**
  * @file   RandomNetworkLayer.java
- * @author Scott F. Kaplan (sfkaplan@cs.amherst.edu)
+ * @author Ahmed Aly (aaly24@amherst.edu)
  * @date   April 2022
  *
  * A network layer that perform routing via random link selection.
@@ -52,27 +53,41 @@ public class RandomNetworkLayer extends NetworkLayer {
     /**
      * Create a single packet containing the given data, with header that marks
      * the source and destination hosts.
-     *
+     * Packet is created as length of packet, destination, and the data.
+     * The length of the packet includes the 4 bytes of the destination and 
+     * the rest of the data
      * @param destination The address to which this packet is sent.
      * @param data        The data to send.
      * @return the sequence of bytes that comprises the packet.
      */
     protected byte[] createPacket (int destination, byte[] data) {
+        if (data.length >= MAX_PACKET_SIZE){
+            //Logger.log(Level.SEVERE,"Length of packet is more than maximum allowed");
+            System.err.println("Length of packet is more than maximum allowed");
+        }
         Queue<Byte> packet = new LinkedList<Byte>();
         // length of packet is the length of the data + destination byte hence + 4.
-        int packetLength = data.length + 4;
+        int packetLength = data.length + Integer.BYTES + Integer.BYTES;
         byte[] packetLengthBytes = intToBytes(packetLength);
+        // add the packet length to the packet
         for (int i = 0; i < packetLengthBytes.length; i++) {
-            assert (packetLengthBytes.length == 4);
-            // add the packet length
+            assert (packetLengthBytes.length == Integer.BYTES);
             packet.add(packetLengthBytes[i]);
         }
+        // get the destination as an array of bytes.
         byte[] destinationBytes = intToBytes(destination);
+        // add the destination bytes to the packet
         for (int i = 0; i < destinationBytes.length;i++){
-            assert (destinationBytes.length == 4);
+            assert (destinationBytes.length == Integer.BYTES);
             packet.add(destinationBytes[i]);
         }
-
+        // add source bytes to the packet
+        byte[] sourceBytes = intToBytes(this.address);
+        for (int i = 0; i < sourceBytes.length;i++){
+            assert (sourceBytes.length == Integer.BYTES);
+            packet.add(sourceBytes[i]);
+        }
+        // add the actual data to the packet.
         for (int i = 0; i < data.length; i++) {
             packet.add(data[i]);
         }
@@ -126,7 +141,6 @@ public class RandomNetworkLayer extends NetworkLayer {
         return randomLink;
     }
 
-    }
     // =========================================================================
     /**
      * Examine a buffer to see if it's data can be extracted as a packet; if so,
@@ -138,18 +152,19 @@ public class RandomNetworkLayer extends NetworkLayer {
      */
     protected byte[] extractPacket (Queue<Byte> buffer) {
         Queue<Byte> packetsBuffer = new LinkedList<>(buffer);
-        if (buffer.size() < 4){
+        if (buffer.size() < bytesPerHeader){
+            // can't extract the header
             return null;
         }
         int packetLength = byteToInteger(packetsBuffer);
-        byte[] packet = new byte[packetLength];
         if (packetLength > buffer.size()){
             // buffer is too small to contain the packet
             return null;
         }
-        // found a whole packet;
+        // found a whole packet
+        byte[] packet = new byte[packetLength];
         for (int i = 0; i < packetLength; i++) {
-            // fill the packets array wit the whole packet
+            // fill the packets array with the whole packet
             packet[i] = buffer.remove();
         }
        return packet;
@@ -157,12 +172,11 @@ public class RandomNetworkLayer extends NetworkLayer {
     // =========================================================================
 
     private int byteToInteger(Queue<Byte> buffer) {
-        int intSize = 4; // an int is 4 bytes long.
         int value = 0;
-
-        for (int i = 0; i < intSize; i++) {
+        for (int i = 0; i < Integer.BYTES; i++) {
             value = (value << 8) + ( buffer.remove() & 0xFF);
         }
+        return value;
     }
 
 
@@ -176,8 +190,20 @@ public class RandomNetworkLayer extends NetworkLayer {
      * @see   createPacket
      */
     protected void processPacket (byte[] packet) {
-
-	// COMPLETE ME
+        // get destination.
+        byte[] destinationBytes = new byte[Integer.BYTES];
+        copyFrom(destinationBytes, packet, destinationOffset);
+        int destination = bytesToInt(destinationBytes);
+        // check if the destination is this.
+        if (destination == this.address){
+            // deliver to host
+            client.receive(packet);
+        } else{
+            DataLinkLayer randomLink = route(destination);
+            randomLink.send(packet);
+        }
+        // else create new packet
+        // reroute
 	
     } // processPacket ()
     // =========================================================================
@@ -199,14 +225,14 @@ public class RandomNetworkLayer extends NetworkLayer {
     /** The offset into the header for the length. */
     public static final int     lengthOffset      = 0;
 
-    /** The offset into the header for the source address. */
-    public static final int     sourceOffset      = lengthOffset + Integer.BYTES;
-
+    
     /** The offset into the header for the destination address. */
-    public static final int     destinationOffset = sourceOffset + Integer.BYTES;
-
+    public static final int     destinationOffset = lengthOffset + Integer.BYTES;
+    /** The offset into the header for the source address. */
+    public static final int     sourceOffset      = destinationOffset + Integer.BYTES;
+    
     /** How many total bytes per header. */
-    public static final int     bytesPerHeader    = destinationOffset + Integer.BYTES;
+    public static final int     bytesPerHeader    = sourceOffset + Integer.BYTES;
 
     /** Whether to emit debugging information. */
     public static final boolean debug             = false;
