@@ -35,7 +35,7 @@ public class RandomNetworkLayer extends NetworkLayer {
     // =========================================================================
 
     Logger logger = Logger.getLogger(RandomNetworkLayer.class.getName());
-
+    private boolean debugLogger = false;
     // =========================================================================
     /**
      * Default constructor.  Set up the random number generator.
@@ -61,10 +61,10 @@ public class RandomNetworkLayer extends NetworkLayer {
      * @return the sequence of bytes that comprises the packet.
      */
     protected byte[] createPacket (int destination, byte[] data) {
-        if (data.length >= MAX_PACKET_SIZE){
-            //Logger.log(Level.SEVERE,"Length of packet is more than maximum allowed");
-            System.err.println("Length of packet is more than maximum allowed");
+        if (!debugLogger){
+            logger.setLevel(Level.OFF);
         }
+
         Queue<Byte> packet = new LinkedList<Byte>();
         // length of packet is the length of the data + the length of the header
         int packetLength = data.length + bytesPerHeader;
@@ -157,6 +157,9 @@ public class RandomNetworkLayer extends NetworkLayer {
             return null;
         }
         int packetLength = byteToInteger(packetsBuffer);
+        if (packetLength < 0){
+            System.err.printf("Packet Length: %d", packetLength);
+        }
         if (packetLength > buffer.size()){
             // buffer is too small to contain the packet
             return null;
@@ -171,9 +174,19 @@ public class RandomNetworkLayer extends NetworkLayer {
     } // extractPacket ()
     // =========================================================================
 
+
+    /**
+     * @brief converts the first four bytes in the passed in queue to 
+     *        an integer
+     * @param buffer The bytes queue
+     * @return an int with the value of the first four bytes
+     */
     private int byteToInteger(Queue<Byte> buffer) {
+        assert (buffer.size() >= 4);
+        // create the space for the int
         int value = 0;
         for (int i = 0; i < Integer.BYTES; i++) {
+            // mask byte from the buffer and add them to the int value
             value = (value << 8) + ( buffer.remove() & 0xFF);
         }
         return value;
